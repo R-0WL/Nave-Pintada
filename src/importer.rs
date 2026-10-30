@@ -69,7 +69,7 @@ fn load_obj(path: &Path) -> Result<Vec<Object3D>> {
             vertices.push(Vertex { position: [m.positions[i * 3], m.positions[i * 3 + 1], m.positions[i * 3 + 2]], uv });
         }
         let material_id = m.material_id.unwrap_or(0).min(materials.len() - 1);
-        let triangles = m.indices.chunks_exact(3).map(|idx| Triangle {
+        let triangles: Vec<_> = m.indices.chunks_exact(3).map(|idx| Triangle {
             indices: [idx[0], idx[1], idx[2]], material_id,
             paint: [255, 255, 255, 255],
         }).collect();
