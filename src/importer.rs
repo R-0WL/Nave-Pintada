@@ -55,7 +55,16 @@ pub fn load_model(path: &Path) -> Result<Vec<Object3D>> {
 fn load_obj(path: &Path) -> Result<Vec<Object3D>> {
     let options = tobj::LoadOptions { triangulate: true, single_index: true, ignore_points: true, ignore_lines: true, ..Default::default() };
     let (models, material_result) = tobj::load_obj(path, &options).context("No se pudo leer el OBJ")?;
-    let imported_materials = material_result.context("El OBJ se leyó, pero no se pudo resolver su archivo MTL")?;
+    // OBJ geometry is still useful even when it has no mtllib statement or
+    // the referenced MTL is missing. In that case keep importing the mesh and
+    // let the default material below provide a visible base color.
+    let imported_materials = match material_result {
+        Ok(materials) => materials,
+        Err(error) => {
+            eprintln!("[IMPORT][OBJ] No se pudieron cargar materiales MTL ({error:?}); se usará un material por defecto.");
+            Vec::new()
+        }
+    };
     let base_dir = path.parent().unwrap_or_else(|| Path::new("."));
     let mut materials = Vec::new();
     for mat in &imported_materials {

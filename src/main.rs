@@ -9,6 +9,10 @@ use minifb::{Key, KeyRepeat, MouseButton, MouseMode, Window, WindowOptions};
 use model::{EditorCamera, Scene};
 use renderer::Renderer;
 use std::path::{Path, PathBuf};
+#[cfg(target_os = "linux")]
+use std::io::{self, Write};
+#[cfg(target_os = "linux")]
+use std::process::Command;
 
 const WIDTH: usize = 1100;
 const HEIGHT: usize = 720;
@@ -333,15 +337,138 @@ fn frame_scene(scene: &Scene, camera: &mut EditorCamera) {
 
 fn open_file(scene: &mut Scene, selected: &mut Option<usize>, face: &mut Option<(usize, usize)>, status: &mut String) {
     *status = "Abriendo selector de archivos...".to_string();
-    let Some(path) = rfd::FileDialog::new()
+    let Some(path) = pick_model_file() else {
+        *status = "No se seleccionó archivo. Revisa la terminal si el selector no está disponible.".to_string();
+        eprintln!("[OPEN] No se seleccionó ningún archivo.");
+        return;
+    };
+    eprintln!("[OPEN] Archivo seleccionado: {}", path.display());
+    open_path(scene, &path, selected, face, status);
+}
+
+/// Selects a model path. On Linux we try common desktop pickers explicitly
+/// (Zenity/KDialog/YAD), then rfd's XDG portal backend, and finally a terminal
+/// prompt. This last fallback is important on WSL/minimal Linux desktops where
+/// no XDG portal, DBus service or Zenity package is installed.
+fn pick_model_file() -> Option<PathBuf> {
+    #[cfg(target_os = "linux")]
+    {
+        let filters = "3D Models | *.obj *.gltf *.glb *.r3d *.json\nAll files | *";
+        let zenity_args = [
+            "--file-selection",
+            "--title=Abrir modelo o proyecto 3D",
+            "--file-filter=3D Models | *.obj *.gltf *.glb *.r3d *.json",
+            "--file-filter=All files | *",
+        ];
+        match run_picker("zenity", &zenity_args) {
+            PickerAttempt::Selected(path) => return Some(path),
+            PickerAttempt::Cancelled => return None,
+            PickerAttempt::Failed(error) => eprintln!("[OPEN] Zenity: {error}"),
+            PickerAttempt::Unavailable => {}
+        }
+
+        let kdialog_args = ["--getopenfilename", ".", filters, "--title", "Abrir modelo o proyecto 3D"];
+        match run_picker("kdialog", &kdialog_args) {
+            PickerAttempt::Selected(path) => return Some(path),
+            PickerAttempt::Cancelled => return None,
+            PickerAttempt::Failed(error) => eprintln!("[OPEN] KDialog: {error}"),
+            PickerAttempt::Unavailable => {}
+        }
+
+        let yad_args = [
+            "--file",
+            "--title=Abrir modelo o proyecto 3D",
+            "--file-filter=3D Models | *.obj *.gltf *.glb *.r3d *.json",
+            "--file-filter=All files | *",
+        ];
+        match run_picker("yad", &yad_args) {
+            PickerAttempt::Selected(path) => return Some(path),
+            PickerAttempt::Cancelled => return None,
+            PickerAttempt::Failed(error) => eprintln!("[OPEN] YAD: {error}"),
+            PickerAttempt::Unavailable => {}
+        }
+
+        // Keep rfd as a portal-based fallback if the desktop has a portal but
+        // none of the standalone picker commands is installed.
+        if let Some(path) = native_rfd_picker() {
+            return Some(path);
+        }
+        return terminal_path_prompt();
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        native_rfd_picker()
+    }
+}
+
+fn native_rfd_picker() -> Option<PathBuf> {
+    rfd::FileDialog::new()
         .set_title("Abrir modelo o proyecto 3D")
         .add_filter("Modelos 3D", &["obj", "gltf", "glb"])
         .add_filter("Proyecto Rust 3D", &["r3d", "json"])
-        .pick_file() else {
-            *status = "Apertura cancelada (no se seleccionó archivo)".to_string();
-            return;
-        };
-    open_path(scene, &path, selected, face, status);
+        .pick_file()
+}
+
+#[cfg(target_os = "linux")]
+enum PickerAttempt {
+    Selected(PathBuf),
+    Cancelled,
+    Unavailable,
+    Failed(String),
+}
+
+#[cfg(target_os = "linux")]
+fn run_picker(program: &str, args: &[&str]) -> PickerAttempt {
+    let output = match Command::new(program).args(args).output() {
+        Ok(output) => output,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return PickerAttempt::Unavailable,
+        Err(error) => return PickerAttempt::Failed(error.to_string()),
+    };
+    if output.status.success() {
+        let selected = String::from_utf8_lossy(&output.stdout).trim().trim_matches('"').to_string();
+        if selected.is_empty() {
+            return PickerAttempt::Failed("el selector no devolvió una ruta".to_string());
+        }
+        return PickerAttempt::Selected(PathBuf::from(selected));
+    }
+    let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    // Exit code 1 with no error text is the normal cancel result. Some Linux
+    // desktops also return 1 when DISPLAY/DBus is unavailable, so those cases
+    // must continue to the next picker/fallback instead of being mistaken for
+    // a user cancellation.
+    if output.status.code() == Some(1) && detail.is_empty() {
+        return PickerAttempt::Cancelled;
+    }
+    PickerAttempt::Failed(if detail.is_empty() {
+        format!("el proceso terminó con {:?}", output.status.code())
+    } else {
+        detail
+    })
+}
+
+#[cfg(target_os = "linux")]
+fn terminal_path_prompt() -> Option<PathBuf> {
+    eprintln!("\n[OPEN] No encontré un selector gráfico disponible (Zenity/KDialog/YAD/XDG Portal).");
+    eprintln!("[OPEN] Escribe la ruta completa del archivo OBJ, GLTF, GLB o R3D.");
+    eprintln!("[OPEN] Ejemplo: /home/usuario/modelos/cubo.obj");
+    print!("Ruta del modelo (Enter para cancelar): ");
+    let _ = io::stdout().flush();
+    let mut input = String::new();
+    if io::stdin().read_line(&mut input).ok()? == 0 {
+        eprintln!("[OPEN] No hay entrada de terminal. Puedes abrirlo así: cargo run --release -- /ruta/modelo.obj");
+        return None;
+    }
+    let value = input.trim().trim_matches('"').trim_matches('\'');
+    if value.is_empty() {
+        return None;
+    }
+    let path = PathBuf::from(value);
+    if !path.is_file() {
+        eprintln!("[OPEN] El archivo no existe o no es un archivo: {}", path.display());
+        return None;
+    }
+    Some(path)
 }
 
 fn open_path(scene: &mut Scene, path: &Path, selected: &mut Option<usize>, face: &mut Option<(usize, usize)>, status: &mut String) {
@@ -357,17 +484,23 @@ fn open_path(scene: &mut Scene, path: &Path, selected: &mut Option<usize>, face:
             Err(error) => *status = format!("Error al abrir proyecto: {error:#}"),
         }
     } else {
-        // Opening a model starts a clean scene. A single OBJ/GLTF can itself
-        // contain many objects/primitives, so they are all retained.
-        *scene = Scene::default();
-        match importer::import_into_scene(scene, path) {
+        // Import into a temporary scene first. If the file is invalid, keep the
+        // current scene on screen rather than clearing it before the error is
+        // known. One OBJ/GLTF may contain many objects/primitives; retain all.
+        let mut imported_scene = Scene::default();
+        match importer::import_into_scene(&mut imported_scene, path) {
             Ok(()) => {
+                *scene = imported_scene;
                 *selected = if scene.objects.is_empty() { None } else { Some(0) };
                 *face = None;
                 let (loaded, referenced) = texture_counts(scene);
                 *status = format!("Modelo importado: {} | texturas: {loaded}/{referenced}", path.display());
+                eprintln!("[IMPORT] {} | {} objetos | texturas {loaded}/{referenced}", path.display(), scene.objects.len());
             }
-            Err(error) => *status = format!("Error al importar: {error:#}"),
+            Err(error) => {
+                *status = format!("Error al importar: {error:#}");
+                eprintln!("[IMPORT][ERROR] {}: {error:#}", path.display());
+            }
         }
     }
 }
