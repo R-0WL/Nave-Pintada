@@ -1,0 +1,22 @@
+[package]
+name = "rust_3d_editor"
+version = "0.1.0"
+edition = "2021"
+description = "Lightweight software 3D viewer and triangle painter for OBJ/MTL and glTF/GLB models"
+license = "MIT"
+
+[dependencies]
+minifb = "0.27"
+nalgebra-glm = "0.19"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "bmp", "tga"] }
+tobj = "4.0"
+gltf = { version = "1.4", features = ["import"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rfd = "0.15"
+anyhow = "1"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1

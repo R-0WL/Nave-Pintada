@@ -33,7 +33,7 @@ pub fn export_bundle(scene: &Scene, framebuffer: &[u32], width: usize, height: u
     }
 
     project::save_scene(scene, &native_dir.join("scene.r3d"))?;
-    export_obj(scene, &obj_dir)?;
+    write_obj(scene, &obj_dir)?;
     export_gltf(scene, &gltf_dir, false)?;
     export_gltf(scene, &glb_dir, true)?;
     project::save_screenshot(framebuffer, width, height, &capture_dir.join("viewport.png"))?;
