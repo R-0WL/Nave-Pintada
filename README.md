@@ -2,11 +2,39 @@
 
 Visor y editor 3D ligero por software, escrito en Rust. Se enfoca en visualizar modelos, ver la triangulación, seleccionar/pintar caras y exportar escenas completas.
 
+--
+## EJEMPLOS
+![alt text](image.png)
+
+vista triangular
+
+![alt text](image-1.png)
+
+vista solida y pintada 
+
+![alt text](image-2.png)
+
+vista de objeto demo texturizado.
+
+--
 ## Requisitos
 
 - Rust estable instalado con [rustup](https://rustup.rs/).
 - Windows: no se requieren pasos adicionales normalmente.
 - Linux: instalar las dependencias de ventana/gráficos que necesite `minifb` (X11/Wayland, según distribución).
+
+puede  que se necesiten más librerías
+
+```bash
+sudo apt update
+sudo apt install -y \
+    libwayland-dev \
+    libxkbcommon-dev \
+    wayland-protocols \
+    pkg-config \
+    build-essential \
+    zenity
+```
 
 ## Ejecutar
 
@@ -16,7 +44,7 @@ Desde la carpeta del proyecto:
 cargo run --release
 ```
 
-Al iniciar se carga automáticamente `examples/models/demo.obj`, su `demo.mtl` y `checker.png`. Es el ejemplo texturizado incluido. También puedes abrir directamente un archivo desde la terminal:
+Al iniciar se carga automáticamente `examples/models/demo.obj`, su `demo.mtl` y `demo.png`. Es el ejemplo texturizado incluido. También puedes abrir directamente un archivo desde la terminal:
 
 ```bash
 cargo run --release -- "C:/modelos/mi_modelo.obj"
@@ -117,5 +145,5 @@ Este es un renderizador por software con `minifb`, no un motor acelerado por GPU
 
 - Si al pulsar `O` no aparece el selector, prueba el botón **OPEN** de la barra o `F2`. En Windows, comprueba que el diálogo no haya quedado detrás de la ventana principal.
 - Para verificar el cargador de texturas, pulsa **DEMO** y revisa que el título diga `texturas cargadas: 1/1`.
-- Si indica `0/1`, confirma que `demo.mtl` y `checker.png` están en `examples/models/` junto a `demo.obj`.
+- Si indica `0/1`, confirma que `demo.mtl` y `demo.png` están en `examples/models/` junto a `demo.obj`.
 - La exportación se crea en la carpeta `exports/` relativa al directorio desde el que ejecutaste `cargo run`.

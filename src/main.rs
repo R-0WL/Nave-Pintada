@@ -48,7 +48,7 @@ fn main() -> Result<()> {
     let mut status = "Listo. OPEN para importar · DEMO para cargar el modelo texturizado.".to_string();
     let mut last_export: Option<PathBuf> = None;
 
-    // Start with the included OBJ + MTL + checker.png so the texture path is
+    // Start with the included OBJ + MTL + demo.png so the texture path is
     // demonstrated immediately instead of showing an untextured placeholder cube.
     load_demo(&mut scene, &mut selected_object, &mut selected_face, &mut status);
 
@@ -513,7 +513,7 @@ fn load_demo(scene: &mut Scene, selected: &mut Option<usize>, face: &mut Option<
             *selected = if scene.objects.is_empty() { None } else { Some(0) };
             *face = None;
             let (loaded, referenced) = texture_counts(scene);
-            *status = format!("DEMO cargado | texturas cargadas: {loaded}/{referenced} (checker.png)");
+            *status = format!("DEMO cargado | texturas cargadas: {loaded}/{referenced} (demo.png)");
         }
         Err(error) => *status = format!("No se pudo cargar DEMO ({}): {error:#}", path.display()),
     }
