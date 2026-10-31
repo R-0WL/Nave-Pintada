@@ -1,5 +1,8 @@
 # Rust 3D Editor (prototipo funcional)
 
+*edit[30/10/2026]: Los repos estaban privados por que yo uso github como drive y tengo un script para crear repos donde uno solo pone repo <nombre> y te lo crea, yo solo copiaba el link generado en la tarea sin verificar como se veía después en la entrega [que cuando uno le da click al link uno si lo mira porque uno está autenticado en github web y me confiaba en eso]. Se me olvidó que el script es para repos privados y es el que uso normalmente, ya cree otro llamado repoclase que va a ser público y lo usaré en todos los repos de la U. Me disculpo por las molestias generadas :(*
+
+
 Visor y pintor 3D por software escrito en Rust. Usa `minifb` para la ventana y el framebuffer, `nalgebra-glm` para matrices/cámara, `tobj` para OBJ/MTL, `gltf` para glTF/GLB e `image` para texturas y capturas.
 
 > Este es un primer entregable funcional del núcleo del editor. Es un renderizador por software, no una aplicación acelerada por GPU. Los modelos muy grandes pueden ir lentos.
